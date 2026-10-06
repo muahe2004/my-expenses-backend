@@ -1,16 +1,17 @@
 import os
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import RedirectResponse
 from google.auth.transport.requests import Request
 from google.oauth2 import id_token
 from oauthlib.oauth2 import OAuth2Error
 from sqlalchemy.orm import Session
 
-from app.database import SessionLocal
+from app.database import SessionLocal, get_db
 from app.models.google_credentials import GoogleCredential
 from app.models.users import User
 from app.services.auth import create_access_token
+from app.services.auth import get_current_user
 from app.services import google_oauth
 
 router = APIRouter()
@@ -88,9 +89,30 @@ def google_callback(code: str | None = None, state: str | None = None, error: st
         db.close()
 
     access_token = create_access_token(user_id)
-    return RedirectResponse(f"{FRONTEND_URL}?token={access_token}")
+    response = RedirectResponse(FRONTEND_URL)
+    response.set_cookie(
+        key="auth_token",
+        value=access_token,
+        httponly=True,
+        secure=os.getenv("COOKIE_SECURE", "false").lower() == "true",
+        samesite="lax",
+        max_age=60 * 60 * 24,
+        path="/",
+    )
+    return response
 
 
 @router.get("/auth/google/status")
-def google_status():
-    return {"connected": google_oauth.is_connected()}
+def google_status(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    credential = db.query(GoogleCredential).filter(GoogleCredential.user_id == user.id).first()
+    return {"connected": credential is not None}
+
+
+@router.post("/auth/logout")
+def logout():
+    response = {"message": "Logged out successfully"}
+    from fastapi.responses import JSONResponse
+
+    result = JSONResponse(response)
+    result.delete_cookie(key="auth_token", path="/")
+    return result

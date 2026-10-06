@@ -6,6 +6,10 @@ from sqlalchemy import Column, Date, DateTime, Enum as SQLAlchemyEnum, ForeignKe
 from sqlalchemy.dialects.postgresql import UUID as PostgreSQLUUID
 
 from app.database import Base
+# Import related models so SQLAlchemy can resolve all foreign-key targets when
+# the transaction mapper is flushed in a process that imports this module first.
+from app.models.categories import Category  # noqa: F401
+from app.models.users import User  # noqa: F401
 
 
 class TransactionType(str, Enum):

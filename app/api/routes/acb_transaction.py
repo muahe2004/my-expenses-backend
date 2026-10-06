@@ -55,3 +55,24 @@ def list_raw_emails(
         end_date=end_date,
     )
     return service.list_raw_emails(query, db, str(user.id))
+
+
+@router.post("/sync-transactions")
+def sync_transactions(
+    max_results: int | None = None,
+    start_date: date | None = None,
+    end_date: date | None = None,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    if not service.ACB_QUERY:
+        logger.error("ACB_QUERY is not configured")
+        raise RuntimeError("ACB_QUERY environment variable is required")
+
+    query = ACBEmailQuery(
+        query=service.ACB_QUERY,
+        max_results=max_results,
+        start_date=start_date,
+        end_date=end_date,
+    )
+    return service.sync_acb_transactions(query, db, str(user.id))

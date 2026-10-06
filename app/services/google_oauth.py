@@ -1,4 +1,5 @@
 import os
+from datetime import timezone
 from pathlib import Path
 from typing import Any
 
@@ -46,6 +47,10 @@ def get_credentials(db: Session, user_id: str) -> Credentials:
     stored = db.query(GoogleCredential).filter(GoogleCredential.user_id == user_id).first()
     if stored is None:
         raise HTTPException(401, "Google account is not connected")
+    expiry = stored.expires_at
+    if expiry is not None and expiry.tzinfo is not None:
+        expiry = expiry.astimezone(timezone.utc).replace(tzinfo=None)
+
     credentials = Credentials(
         token=stored.access_token,
         refresh_token=stored.refresh_token,
@@ -53,6 +58,7 @@ def get_credentials(db: Session, user_id: str) -> Credentials:
         client_id=CLIENT_ID,
         client_secret=CLIENT_SECRET,
         scopes=SCOPES,
+        expiry=expiry,
     )
     if credentials.expired and credentials.refresh_token:
         credentials.refresh(Request())

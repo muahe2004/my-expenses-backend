@@ -1,7 +1,8 @@
 import base64
 import os
 import re
-from datetime import timedelta
+from datetime import datetime, timedelta
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from bs4 import BeautifulSoup
@@ -23,6 +24,7 @@ from app.models.acb_transaction import (
     ACBTransaction,
     ACBTransactionResponse,
 )
+from app.models.transactions import Transaction, TransactionType
 from app.models.gmail import (
     GmailMessageGetParams,
     GmailMessageListParams,
@@ -140,3 +142,59 @@ def list_acb_transactions(query: ACBEmailQuery, db, user_id: str) -> ACBTransact
 def list_raw_emails(query: ACBEmailQuery, db, user_id: str) -> ACBRawEmailResponse:
     messages = _list_raw_messages(query, db, user_id)
     return ACBRawEmailResponse(count=len(messages), messages=messages)
+
+
+def _parse_amount(value: str) -> Decimal:
+    """Convert Gmail's formatted VND amount (for example 1,234.50) to Decimal."""
+    try:
+        return Decimal(value.replace(",", "").replace(" ", "")).quantize(Decimal("0.01"))
+    except InvalidOperation as exc:
+        raise HTTPException(status_code=422, detail=f"Invalid transaction amount: {value}") from exc
+
+
+def _parse_transaction_date(value: str | None):
+    if not value:
+        return None
+    try:
+        return datetime.strptime(value, "%d/%m/%Y").date()
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=f"Invalid transaction date: {value}") from exc
+
+
+def sync_acb_transactions(query: ACBEmailQuery, db, user_id: str) -> dict[str, int]:
+    """Fetch parsed ACB emails and insert/update their corresponding DB rows."""
+    parsed = list_acb_transactions(query, db, user_id)
+    created = 0
+    updated = 0
+
+    for item in parsed.transactions:
+        if not item.transaction_id:
+            continue
+
+        transaction = (
+            db.query(Transaction)
+            .filter(
+                Transaction.transaction_id == item.transaction_id,
+                Transaction.user_id == user_id,
+            )
+            .first()
+        )
+        if transaction is None:
+            transaction = Transaction(
+                transaction_id=item.transaction_id,
+                user_id=user_id,
+            )
+            db.add(transaction)
+            created += 1
+        else:
+            updated += 1
+
+        transaction.account_number = item.account_number
+        transaction.transaction_type = TransactionType(item.transaction_type.upper())
+        transaction.amount = _parse_amount(item.amount)
+        transaction.balance = _parse_amount(item.balance) if item.balance else None
+        transaction.description = item.description
+        transaction.transaction_date = _parse_transaction_date(item.transaction_date)
+
+    db.commit()
+    return {"fetched": parsed.count, "created": created, "updated": updated}

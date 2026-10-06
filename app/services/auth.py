@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 import jwt
-from fastapi import Depends, HTTPException
+from fastapi import Cookie, Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
@@ -13,7 +13,7 @@ from app.models.users import User
 JWT_SECRET = os.getenv("JWT_SECRET", "change-this-secret")
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRE_MINUTES = 60 * 24
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/google")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/google", auto_error=False)
 
 
 def create_access_token(user_id: UUID) -> str:
@@ -21,8 +21,15 @@ def create_access_token(user_id: UUID) -> str:
     return jwt.encode({"sub": str(user_id), "exp": expires_at}, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
 
-def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:
+def get_current_user(
+    token: str | None = Depends(oauth2_scheme),
+    auth_token: str | None = Cookie(default=None),
+    db: Session = Depends(get_db),
+) -> User:
     credentials_error = HTTPException(status_code=401, detail="Invalid authentication credentials")
+    token = token or auth_token
+    if not token:
+        raise credentials_error
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         user_id = UUID(payload["sub"])
