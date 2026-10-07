@@ -12,7 +12,7 @@ LATEST_TRANSACTION = re.compile(
 ACCOUNT = re.compile(r"account\s+(?P<value>\d+)", re.IGNORECASE)
 
 BALANCE = re.compile(
-    r"Updated account balance:\s*(?P<value>[\d,.]+)\s*VND",
+    rf"Updated account balance:\s*(?P<value>{AMOUNT_PATTERN})\s*VND",
     re.IGNORECASE,
 )
 

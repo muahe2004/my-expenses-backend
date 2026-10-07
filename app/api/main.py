@@ -6,6 +6,7 @@ from sqlalchemy import text
 
 from app.api.routes.acb_transaction import router as acb_transaction_router
 from app.api.routes.google_oauth import router as google_oauth_router
+from app.api.routes.transactions import router as transactions_router
 from app.database import engine
 
 app = FastAPI()
@@ -18,6 +19,7 @@ app.add_middleware(
 )
 app.include_router(acb_transaction_router)
 app.include_router(google_oauth_router)
+app.include_router(transactions_router)
 
 
 @app.get("/")
