@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
 from app.api.routes.acb_transaction import router as acb_transaction_router
+from app.api.routes.categories import router as categories_router
 from app.api.routes.google_oauth import router as google_oauth_router
 from app.api.routes.transactions import router as transactions_router
 from app.database import engine
@@ -18,6 +19,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(acb_transaction_router)
+app.include_router(categories_router)
 app.include_router(google_oauth_router)
 app.include_router(transactions_router)
 
