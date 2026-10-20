@@ -13,9 +13,15 @@ class CategoryStatus(str, Enum):
     INACTIVE = "inactive"
 
 
+class CategoryType(str, Enum):
+    INCOME = "income"
+    EXPENSE = "expense"
+
+
 class Category(Base):
     id = Column(PostgreSQLUUID(as_uuid=True), primary_key=True, default=uuid4)
     name = Column(String(100), nullable=False)
+    type = Column(SQLAlchemyEnum(CategoryType), nullable=False, default=CategoryType.EXPENSE)
     status = Column(SQLAlchemyEnum(CategoryStatus), nullable=False, default=CategoryStatus.ACTIVE)
     created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
@@ -23,6 +29,7 @@ class Category(Base):
 
 class CategoryBase(BaseModel):
     name: str = Field(min_length=1, max_length=100)
+    type: CategoryType
     status: CategoryStatus = CategoryStatus.ACTIVE
 
     @field_validator("name")
@@ -42,6 +49,7 @@ class CategoryUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: str | None = Field(default=None, min_length=1, max_length=100)
+    type: CategoryType | None = None
     status: CategoryStatus | None = None
 
     @field_validator("name")
@@ -60,6 +68,7 @@ class CategoryResponse(BaseModel):
 
     id: UUID
     name: str
+    type: CategoryType
     status: CategoryStatus
 
 

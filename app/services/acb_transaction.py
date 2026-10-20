@@ -162,10 +162,10 @@ def _parse_transaction_date(value: str | None):
 
 
 def sync_acb_transactions(query: ACBEmailQuery, db, user_id: str) -> dict[str, int]:
-    """Fetch parsed ACB emails and insert/update their corresponding DB rows."""
+    """Fetch parsed ACB emails and insert only transactions not yet in the DB."""
     parsed = list_acb_transactions(query, db, user_id)
     created = 0
-    updated = 0
+    skipped = 0
 
     for item in parsed.transactions:
         if not item.transaction_id:
@@ -179,15 +179,16 @@ def sync_acb_transactions(query: ACBEmailQuery, db, user_id: str) -> dict[str, i
             )
             .first()
         )
-        if transaction is None:
-            transaction = Transaction(
-                transaction_id=item.transaction_id,
-                user_id=user_id,
-            )
-            db.add(transaction)
-            created += 1
-        else:
-            updated += 1
+        if transaction is not None:
+            skipped += 1
+            continue
+
+        transaction = Transaction(
+            transaction_id=item.transaction_id,
+            user_id=user_id,
+        )
+        db.add(transaction)
+        created += 1
 
         transaction.account_number = item.account_number
         transaction.transaction_type = TransactionType(item.transaction_type.upper())
@@ -197,4 +198,4 @@ def sync_acb_transactions(query: ACBEmailQuery, db, user_id: str) -> dict[str, i
         transaction.transaction_date = _parse_transaction_date(item.transaction_date)
 
     db.commit()
-    return {"fetched": parsed.count, "created": created, "updated": updated}
+    return {"fetched": parsed.count, "created": created, "updated": 0, "skipped": skipped}

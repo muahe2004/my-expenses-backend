@@ -27,6 +27,6 @@ Open `http://localhost:8000/auth/google` and approve read-only Gmail access. The
 - `GET /auth/google` — start Google login
 - `GET /auth/google/status` — check connection
 - `GET /emails?max_results=20` — read message metadata (From, To, Subject, Date)
-- `POST /sync-transactions?max_results=20` — fetch ACB emails, parse transactions, and upsert them into the `transactions` table
+- `POST /sync-transactions?max_results=20` — fetch ACB emails, parse transactions, and insert new ones into the `transactions` table; existing transactions are skipped
 
 This starter implementation stores one connected Google account. For production/multiple users, store encrypted refresh tokens per user in a database and use a server-side OAuth state/session store instead of the in-memory state set.

@@ -28,17 +28,27 @@ def google_login():
 
 
 @router.get("/auth/google/callback")
-def google_callback(code: str | None = None, state: str | None = None, error: str | None = None):
+def google_callback(
+    code: str | None = None,
+    state: str | None = None,
+    error: str | None = None,
+    scope: str | None = None,
+):
     if error:
         raise HTTPException(400, f"Google authorization failed: {error}")
     if not code or not state or state not in _oauth_states:
         raise HTTPException(400, "Invalid Google OAuth callback")
     verifier = _oauth_states.pop(state)
+    gmail_scope = "https://www.googleapis.com/auth/gmail.readonly"
+    if scope is not None and gmail_scope not in scope.split():
+        raise HTTPException(400, "Gmail read access was not granted. Start Google login again and approve Gmail access.")
     flow = google_oauth.create_flow(state)
     try:
         flow.fetch_token(code=code, code_verifier=verifier)
     except OAuth2Error as exc:
         raise HTTPException(400, f"Google token exchange failed: {exc}") from exc
+    except Warning as exc:
+        raise HTTPException(400, "Google granted different permissions than requested. Start Google login again and approve Gmail access.") from exc
 
     try:
         google_profile = id_token.verify_oauth2_token(
