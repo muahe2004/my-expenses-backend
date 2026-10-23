@@ -5,9 +5,11 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.models.statistics import StatisticsResponse
 from app.models.transactions import TransactionCreate, TransactionResponse, TransactionType, TransactionUpdate
 from app.models.users import User
 from app.services import transactions as service
+from app.services import statistics as statistics_service
 from app.services.auth import get_current_user
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
@@ -21,6 +23,16 @@ def list_transactions(skip: int = Query(0, ge=0), limit: int = Query(20, ge=1, l
 @router.post("", response_model=TransactionResponse, status_code=status.HTTP_201_CREATED)
 def create_transaction(data: TransactionCreate, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     return service.create_transaction(db, data, user.id)
+
+
+@router.get("/statistics", response_model=StatisticsResponse)
+def get_statistics(
+    start_date: date,
+    end_date: date,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    return statistics_service.get_statistics(db, user.id, start_date, end_date)
 
 
 @router.get("/{transaction_id}", response_model=TransactionResponse)
