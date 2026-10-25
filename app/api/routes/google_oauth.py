@@ -9,14 +9,32 @@ from sqlalchemy.orm import Session
 
 from app.database import SessionLocal, get_db
 from app.models.google_credentials import GoogleCredential
-from app.models.users import User
+from app.models.users import User, UserResponse, UserUpdate
 from app.services.auth import create_access_token
 from app.services.auth import get_current_user
 from app.services import google_oauth
+from app.services import users as users_service
 
 router = APIRouter()
 _oauth_states: dict[str, str | None] = {}
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+
+
+@router.get("/users/me", response_model=UserResponse)
+def get_current_user_details(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    return users_service.to_response(users_service.get_current_user(db, user.id))
+
+
+@router.patch("/users/me", response_model=UserResponse)
+def update_current_user(
+    data: UserUpdate,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    return users_service.update_current_user(db, user.id, data)
 
 
 @router.get("/auth/google")

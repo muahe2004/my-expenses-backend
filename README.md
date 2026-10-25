@@ -26,11 +26,15 @@ Open `http://localhost:8000/auth/google` and approve read-only Gmail access. The
 
 - `GET /auth/google` — start Google login
 - `GET /auth/google/status` — check connection
+- `GET /users/me` — return the profile of the user identified by the login JWT. Accepts `Authorization: Bearer <token>` or the `auth_token` cookie set after Google login; missing or invalid tokens return `401`.
+- `PATCH /users/me` — update the current user's `full_name`, `phone_number`, `address`, `bank_name`, and/or `currency`. Email, Google ID, and balance are read-only.
 - `GET /emails?max_results=20` — read message metadata (From, To, Subject, Date)
 - `POST /sync-transactions?max_results=20` — fetch ACB emails, parse transactions, and insert new ones into the `transactions` table; existing transactions are skipped
 - `GET /transactions/statistics?start_date=2026-10-01&end_date=2026-10-31` — authenticated statistics for the inclusive date range. The response contains `data.start_date`, `data.end_date`, `data.total_expense` (DEBIT), `data.total_income` (CREDIT), and `data.categories` as an array. Each category includes its ID, name, type, status, count, and transaction list. Every category is returned, including inactive categories; categories without transactions have `count: null` and `transactions: null`. Transactions without a category appear in an `Unknown` entry when present. That entry has `category_id`, `type`, and `status` set to `null`, and its nested transactions show `category_name: "Unknown"`. Totals include these transactions.
 
 The statistics endpoint requires the login JWT in `Authorization: Bearer <token>` or the `auth_token` cookie set after Google login. Missing or invalid tokens return `401`; transaction data is filtered by the authenticated user's ID. Categories are shared records in the current database schema.
+
+The `GET /users/me` response includes the user's ID, name, email, Google ID, phone number, address, bank name, balance, currency, status, and account timestamps.
 
 Example response (amounts are decimal strings):
 

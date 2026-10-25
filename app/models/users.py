@@ -1,7 +1,9 @@
+from datetime import datetime
 from decimal import Decimal
 from enum import Enum
-from uuid import uuid4
+from uuid import UUID, uuid4
 
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import Column, DateTime, Enum as SQLAlchemyEnum, Numeric, String, func
 from sqlalchemy.dialects.postgresql import UUID as PostgreSQLUUID
 
@@ -26,3 +28,28 @@ class User(Base):
     status = Column(SQLAlchemyEnum(UserStatus), nullable=True, default=UserStatus.ACTIVE)
     created_at = Column(DateTime(timezone=True), nullable=True, server_default=func.now())
     updated_at = Column(DateTime(timezone=True), nullable=True, server_default=func.now(), onupdate=func.now())
+
+
+class UserResponse(BaseModel):
+    id: UUID
+    full_name: str | None
+    email: str
+    google_id: str | None
+    phone_number: str | None
+    address: str | None
+    bank_name: str | None
+    balance: Decimal | None
+    currency: str | None
+    status: UserStatus | None
+    created_at: datetime | None
+    updated_at: datetime | None
+
+
+class UserUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    full_name: str | None = Field(default=None, max_length=150)
+    phone_number: str | None = Field(default=None, max_length=30)
+    address: str | None = Field(default=None, max_length=255)
+    bank_name: str | None = Field(default=None, max_length=100)
+    currency: str | None = Field(default=None, min_length=3, max_length=3)

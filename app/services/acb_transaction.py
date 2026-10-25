@@ -25,6 +25,7 @@ from app.models.acb_transaction import (
     ACBTransactionResponse,
 )
 from app.models.transactions import Transaction, TransactionType
+from app.models.users import User
 from app.models.gmail import (
     GmailMessageGetParams,
     GmailMessageListParams,
@@ -162,10 +163,12 @@ def _parse_transaction_date(value: str | None):
 
 
 def sync_acb_transactions(query: ACBEmailQuery, db, user_id: str) -> dict[str, int]:
-    """Fetch parsed ACB emails and insert only transactions not yet in the DB."""
+    """Sync ACB emails and refresh the user's balance from the latest transaction."""
     parsed = list_acb_transactions(query, db, user_id)
     created = 0
     skipped = 0
+    latest_balance: Decimal | None = None
+    latest_balance_date = None
 
     for item in parsed.transactions:
         if not item.transaction_id:
@@ -179,6 +182,15 @@ def sync_acb_transactions(query: ACBEmailQuery, db, user_id: str) -> dict[str, i
             )
             .first()
         )
+        transaction_date = _parse_transaction_date(item.transaction_date)
+        item_balance = _parse_amount(item.balance) if item.balance else None
+        if item_balance is not None and (
+            latest_balance_date is None
+            or (transaction_date is not None and transaction_date > latest_balance_date)
+        ):
+            latest_balance = item_balance
+            latest_balance_date = transaction_date
+
         if transaction is not None:
             skipped += 1
             continue
@@ -193,9 +205,14 @@ def sync_acb_transactions(query: ACBEmailQuery, db, user_id: str) -> dict[str, i
         transaction.account_number = item.account_number
         transaction.transaction_type = TransactionType(item.transaction_type.upper())
         transaction.amount = _parse_amount(item.amount)
-        transaction.balance = _parse_amount(item.balance) if item.balance else None
+        transaction.balance = item_balance
         transaction.description = item.description
-        transaction.transaction_date = _parse_transaction_date(item.transaction_date)
+        transaction.transaction_date = transaction_date
+
+    if latest_balance is not None:
+        user = db.query(User).filter(User.id == user_id).first()
+        if user is not None:
+            user.balance = latest_balance
 
     db.commit()
     return {"fetched": parsed.count, "created": created, "updated": 0, "skipped": skipped}
