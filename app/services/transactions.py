@@ -32,7 +32,7 @@ def list_transactions(db: Session, user_id: UUID, skip: int = 0, limit: int = 20
         query = query.filter(Transaction.transaction_date >= start_date)
     if end_date is not None:
         query = query.filter(Transaction.transaction_date <= end_date)
-    return query.order_by(Transaction.transaction_date.desc(), Transaction.created_at.desc()).offset(skip).limit(limit).all()
+    return query.order_by(Transaction.transaction_date.desc(), Transaction.created_at.desc(), Transaction.id.desc()).offset(skip).limit(limit).all()
 
 
 def create_transaction(db: Session, data: TransactionCreate, user_id: UUID):

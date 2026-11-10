@@ -1,6 +1,6 @@
 import unittest
 import json
-from datetime import date
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from uuid import uuid4
 
@@ -14,6 +14,7 @@ from app.models.transactions import Transaction, TransactionType
 from app.models.users import User
 from app.services.auth import create_access_token, get_current_user
 from app.services.statistics import get_statistics
+from app.services.transactions import list_transactions
 
 
 class StatisticsTests(unittest.TestCase):
@@ -76,6 +77,30 @@ class StatisticsTests(unittest.TestCase):
         data = get_statistics(self.db, self.user.id, date(2026, 10, 1), date(2026, 10, 31)).data
         self.assertEqual(len(data.categories), 3)
         self.assertNotIn("Unknown", [category.name for category in data.categories])
+
+    def test_recent_transfer_date_stays_first_after_older_transaction_is_updated(self):
+        older = Transaction(
+            user_id=self.user.id, category_id=self.expense.id, transaction_id="older",
+            transaction_type=TransactionType.DEBIT, amount=Decimal("1.00"),
+            transaction_date=date(2026, 11, 1),
+            updated_at=datetime(2026, 11, 9, tzinfo=timezone.utc),
+        )
+        newer = Transaction(
+            user_id=self.user.id, category_id=self.expense.id, transaction_id="newer",
+            transaction_type=TransactionType.DEBIT, amount=Decimal("2.00"),
+            transaction_date=date(2026, 11, 8),
+            updated_at=datetime(2026, 11, 8, tzinfo=timezone.utc),
+        )
+        self.db.add_all([older, newer])
+        self.db.flush()
+
+        self.assertEqual(
+            [item.transaction_id for item in list_transactions(self.db, self.user.id)],
+            ["newer", "older"],
+        )
+        categories = get_statistics(self.db, self.user.id, date(2026, 11, 1), date(2026, 11, 9)).data.categories
+        expense = next(category for category in categories if category.category_id == self.expense.id)
+        self.assertEqual([item.transaction_id for item in expense.transactions], ["newer", "older"])
 
     def test_rejects_reversed_dates(self):
         with self.assertRaises(HTTPException) as error:

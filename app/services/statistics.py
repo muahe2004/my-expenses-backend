@@ -22,7 +22,7 @@ def get_statistics(db: Session, user_id: UUID, start_date: date, end_date: date)
             Transaction.transaction_date >= start_date,
             Transaction.transaction_date <= end_date,
         )
-        .order_by(Transaction.transaction_date.desc(), Transaction.created_at.desc())
+        .order_by(Transaction.transaction_date.desc(), Transaction.created_at.desc(), Transaction.id.desc())
         .all()
     )
 
